@@ -1,43 +1,31 @@
-#define PWMA 11
-#define PWMB 10
-#define AIN1 2
-#define AIN2 3
-#define BIN1 4
-#define BIN2 5
-int pins[8] = { A0,A1,A2,A3,A4,A5,A6,A7};
-int sensorArray[8];
+#define pwmA 3
+#define inA1 4
+#define inA2 5
+#define std 6
+#define inB1 7
+#define inB2 8
+#define pwmB 9
+float pins[8] = { A0,A1,A2,A3,A4,A5,A6,A7};
+float sensorArray[8];
 int sensorValue = 0;
 double totalSum = 0, weightedSum = 0;
-double distFromCenter[8] = { -30,-15,-5,0,0,5,15,30 };
+double distFromCenter[8] = { -300,-150,-50,0,0,50,150,300 };
 int threshold = 150;
 
-int maxV[8]={963,949,931,942,937,931,917,688 }; 
-int minV[8]={97,93,100,86,77,83,77,6}  ;
-
-// int R1=
-// int R2=
-// int enA=
-// int L1=
-// int L2=
-// int enB=
-
-// int LED=
-// int finalRun=
-// int Calibrate=
-
-//pid
-double Kp = 10; 
-double Kd = 40; 
-double Ki = 0.05; 
+double maxV[8]={ 805.00  ,802.00  ,801.00  ,802.00  ,801.00  ,801.00  ,801.00 , 800.00  };
+double minV[8]={196.00 , 184.00 , 189.00 , 174.00 , 136.00 , 135.00 , 143.00 , 119.00  } ;
+double Kp = 55; 
+double Kd = 190; 
+double Ki = 0; 
 double P = 0;
 double I = 0;
 double D = 0;
 double lastError = 0; 
 
 double PID = 0;
-int error;
+float error;
 
-void read() {
+void SensorRead() {
   for (int i = 0; i < 8; i++) {
     sensorArray[i] = constrain(map(analogRead(pins[i]), minV[i], maxV[i], 0, 255), 0, 255);
   }
@@ -48,21 +36,27 @@ void read() {
   for (int i = 0; i <8; i++) {
     totalSum += sensorArray[i];
     weightedSum += distFromCenter[i] * sensorArray[i];
-    if (sensorArray[i] > threshold)
-    {sensorValue |= 1 << (7 - i);}
+    if (sensorArray[i] > threshold) sensorValue |= 1 << (7 - i);
   }
   // Serial.print("sensor value: ");
   // Serial.print(sensorValue);
-  error = weightedSum / totalSum;
+  error = (weightedSum / totalSum);
 }
 void calculatePID() {
   P = error;
   I = I + error;
   D = error - lastError;
   PID = P * Kp + I * Ki + D * Kd;
+
   lastError = error;
-  
-}
+  // if (sensorValue==0b11111110){
+  //   while(sensorValue!=0b11110111){
+  //   PID=100 ; }}
+  // if (sensorValue==0b01111111){
+  //   while(sensorValue!=0b11101111){
+  //   PID=-100 ; }
+  }
+
 void calibrate() {
   Serial.print("calibrating starting");
   for (int i = 0; i < 2000; i++) {
@@ -92,30 +86,85 @@ void calibrate() {
   Serial.println();
 }
 void motorspeed(int s1,int s2){
-  digitalWrite(AIN1,HIGH);
-  digitalWrite(AIN2,LOW);
-  digitalWrite(BIN1,LOW);
-  digitalWrite(BIN2,HIGH);
+  digitalWrite(inA1,HIGH);
+  digitalWrite(inB1,LOW);
+  digitalWrite(inA2,LOW);
+  digitalWrite(inB2,HIGH);
   s1 = constrain(s1, 0, 255);
   s2 = constrain(s2, 0, 255);
-  analogWrite(PWMA,s1);
-  analogWrite(PWMB,s2);
+  analogWrite(pwmA,s1);
+  analogWrite(pwmB,s2);
 }
-void linefollow(){
-  read();
+void LineFollow(){
+  SensorRead();
+  
+  if( sensorArray[0] <150 && sensorArray[7]>150){
+    // SensorRead();
+    // calculatePID();
+   
+  motorspeed(0,0);
+  delay(100);
+  bool A=true;
+  while(A){
+    
+      motorspeed(100,0);
+      SensorRead();
+           
+     if((sensorArray[3]<150||sensorArray[4]<150)&&(sensorArray[0]>150)){
+        A=false;
+      }
+  }
+  }
+  if(sensorArray[7]<150 && sensorArray[0]>150){
+    // SensorRead();
+    // calculatePID();
+  motorspeed(0,0);
+  delay(100);
+    bool A=true;
+    while(A){
+     motorspeed(0,100);
+     SensorRead();
+    
+     if((sensorArray[3]<150||sensorArray[4]<150)&&(sensorArray[7]>150)){
+        A=false;
+      }
+   }
+  }
+  SensorRead();
   calculatePID();
-  int baseSpeed = 125;  // Base speed for the motors
-  int speedA = baseSpeed  - PID;
-  int speedB = baseSpeed  + PID;
-  motorspeed(speedA,speedB);
-}
-
-void setup(){
-  Serial.begin(9600);
+    
+  int speedA =180  + PID;
+  int speedB = 180  - PID;
+  motorspeed(speedA , speedB );
   
 }
+void setup(){
+  Serial.begin(9600);
+  pinMode(pwmA,OUTPUT);
+  pinMode(pwmB,OUTPUT);
+  pinMode(inA1,OUTPUT);
+  pinMode(inA2,OUTPUT);
+  pinMode(std,OUTPUT);
+  pinMode(inB1,OUTPUT);
+  pinMode(inB2,OUTPUT);
+  digitalWrite(std , HIGH);
+// calibrate();
+}
 void loop(){
-  read();
-  Serial.print(error);
-  Serial.println();
+// motorspeed(200,197);
+
+
+// SensorRead();
+// calculatePID();
+// for (int i = 0; i < 8; i++) {
+//  Serial.print(sensorArray[i]);
+//  Serial.print(" ");
+// }
+//
+ LineFollow();
+//  Serial.println();
+//  Serial.println(PID);
+//  Serial.println(sensorValue);
+//  Serial.println(error);
+//  delay(500);
 }
